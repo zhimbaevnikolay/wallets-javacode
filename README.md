@@ -17,7 +17,9 @@ API для системы кошельков с возможностью обн�
 
 `git clone https://github.com/zhimbaevnikolay/wallets-javacode.git`
 
-2. Запустить с помощью docker-compose
+2. Создать и заполнить config.env
+
+3. Запустить с помощью docker-compose
 
 `docker-compose up --build`
 
