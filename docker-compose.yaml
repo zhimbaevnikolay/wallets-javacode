@@ -1,0 +1,66 @@
+services:
+  wallets.db:
+    container_name: wallets-db
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=walletsuser
+      - POSTGRES_PASSWORD=walletspass
+      - POSTGRES_DB=wallets-db
+    volumes:
+      - wallets-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=walletspass pg_isready -q -d wallets-db -U walletsuser"]
+      timeout: 10s
+      interval: 5s
+      retries: 10
+  
+  wallets.migrate:
+    image: migrate/migrate
+    depends_on:
+      - wallets.db
+    volumes:
+     - ./migrations:/migrations
+    command: [ "-path", "/migrations", "-database", "postgres://walletsuser:walletspass@wallets.db:5432/wallets-db?sslmode=disable", "up" ]
+    restart: on-failure
+
+  redis:
+    image: redis:7.4.2
+    container_name: wallets-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 ping | grep 'PONG' || exit 1"]
+      interval: 10s
+      timeout: 30s
+      retries: 10
+  
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wallets-app
+    ports:
+      - "8080:8080"
+    environment:
+      - CONFIG_PATH=./config/prod.yaml
+    volumes:
+      - ./config:/app/config:ro
+      - ./config.env:/app/config.env:ro
+    depends_on:
+      - wallets.db
+      - redis
+    restart: unless-stopped
+    env_file: "config.env"
+
+
+
+volumes:
+  wallets-db-data:
+  redis-data:

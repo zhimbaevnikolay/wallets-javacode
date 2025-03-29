@@ -1,0 +1,18 @@
+env: "local"
+
+http_server:
+  address: "localhost:8080"
+  timeout: 4s
+  idle_timeout: 60s
+
+db:
+  user: "walletsuser"
+  name: "wallets-db"
+  host: "localhost"
+  port: "5432"
+  sslmode: "disable"
+
+redis:
+  address: "localhost"
+  port: "6379"
+  db: 0`
