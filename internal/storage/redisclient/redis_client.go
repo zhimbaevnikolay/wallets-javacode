@@ -18,7 +18,7 @@ const (
 )
 
 type RedisClient struct {
-	client           *redis.Client
+	Client           *redis.Client
 	lockExporation   time.Duration
 	cacheExporation  time.Duration
 	maxUnlockRetries int
@@ -43,7 +43,7 @@ func New(cfg config.Redis) (*RedisClient, error) {
 	}
 
 	return &RedisClient{
-		client:           client,
+		Client:           client,
 		lockExporation:   cfg.LockExporation,
 		cacheExporation:  cfg.CacheExporation,
 		maxUnlockRetries: cfg.MaxUnlockRetries,
@@ -53,7 +53,7 @@ func New(cfg config.Redis) (*RedisClient, error) {
 
 func (r *RedisClient) LockWallet(ctx context.Context, walletID uuid.UUID) (bool, error) {
 	key := fmt.Sprintf("%s:%s", LOCKKEY, walletID.String())
-	locked, err := r.client.SetNX(ctx, key, 1, r.lockExporation).Result()
+	locked, err := r.Client.SetNX(ctx, key, 1, r.lockExporation).Result()
 	if err != nil {
 		return false, err
 	}
@@ -64,7 +64,7 @@ func (r *RedisClient) LockWallet(ctx context.Context, walletID uuid.UUID) (bool,
 
 func (r *RedisClient) UnlockWallet(ctx context.Context, walletID uuid.UUID) {
 	key := fmt.Sprintf("%s:%s", LOCKKEY, walletID.String())
-	r.client.Del(ctx, key)
+	r.Client.Del(ctx, key)
 
 }
 
@@ -91,7 +91,7 @@ func (r *RedisClient) TryLockWallet(ctx context.Context, walletID uuid.UUID) (bo
 
 func (r *RedisClient) GetCachedBalance(ctx context.Context, walletID uuid.UUID) (int64, error) {
 	key := fmt.Sprintf("%s:%s", walletKey, walletID.String())
-	balance, err := r.client.Get(ctx, key).Int64()
+	balance, err := r.Client.Get(ctx, key).Int64()
 	if err != nil {
 		return 0, err
 	}
@@ -102,10 +102,10 @@ func (r *RedisClient) GetCachedBalance(ctx context.Context, walletID uuid.UUID) 
 
 func (r *RedisClient) SetCachedBalance(ctx context.Context, walletID uuid.UUID, balance int64) error {
 	key := fmt.Sprintf("%s:%s", walletKey, walletID)
-	return r.client.Set(ctx, key, balance, r.cacheExporation).Err()
+	return r.Client.Set(ctx, key, balance, r.cacheExporation).Err()
 }
 
 func (r *RedisClient) InvalidateCache(ctx context.Context, walletID uuid.UUID) {
 	key := fmt.Sprintf("%s:%s", walletKey, walletID)
-	r.client.Del(ctx, key)
+	r.Client.Del(ctx, key)
 }

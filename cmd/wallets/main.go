@@ -9,13 +9,15 @@ import (
 	"syscall"
 	"time"
 	"wallets/internal/config"
+	"wallets/internal/http-server/handlers/wallets/addqueue"
 	"wallets/internal/http-server/handlers/wallets/create"
 	"wallets/internal/http-server/handlers/wallets/getbalance"
-	"wallets/internal/http-server/handlers/wallets/updatebalance"
+	"wallets/internal/lib/prettylog"
 	"wallets/internal/lib/sl"
 	"wallets/internal/storage"
 	"wallets/internal/storage/postgres"
-	"wallets/internal/storage/redis_client"
+	redis_client "wallets/internal/storage/redisclient"
+	redisworker "wallets/internal/storage/rediswoker"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +49,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	storage := storage.NewStorage(postgres, redisClient)
+	redisWorker := redisworker.New("update:wallet", redisClient.Client)
+
+	storage := storage.NewStorage(postgres, redisClient, redisWorker)
 
 	ctx := context.Background()
 	router := gin.New()
@@ -56,7 +60,7 @@ func main() {
 	{
 		wallet := api.Group("/wallet")
 		{
-			wallet.POST("", updatebalance.New(ctx, log, storage))
+			wallet.POST("", addqueue.New(ctx, log, storage))
 			wallet.POST("/create", create.New(ctx, log, storage.DB))
 
 		}
@@ -65,6 +69,7 @@ func main() {
 		{
 			wallets.GET("/:uuid", getbalance.New(ctx, log, storage))
 		}
+
 	}
 
 	log.Info("starting server...", slog.String("address", cfg.HTTPServer.Address))
@@ -84,10 +89,13 @@ func main() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("failed to start server", sl.Err(err))
 		}
-
 	}()
 
 	log.Info("server started")
+
+	go storage.StartWorker(ctx, log)
+
+	log.Info("worker started")
 
 	<-done
 	log.Info("server is shutting down...")
@@ -109,10 +117,10 @@ func initLogger(env string) *slog.Logger {
 	switch env {
 	case envLocal:
 		log = slog.New(
-			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			prettylog.NewHandler((&slog.HandlerOptions{
 				Level: slog.LevelDebug,
 			}),
-		)
+			))
 
 	case envProd:
 		log = slog.New(

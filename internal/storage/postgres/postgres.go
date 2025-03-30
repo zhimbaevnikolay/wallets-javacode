@@ -93,7 +93,7 @@ func (r *PostgresRepos) UpdateBalance(ctx context.Context, walletID uuid.UUID, o
 		if errors.Is(err, sql.ErrNoRows) {
 			err = herrors.ErrNXUUID
 		}
-		return models.Transactions{}, fmt.Errorf("%s: %w", op, err)
+		return models.Transactions{}, fmt.Errorf("%s: %s %w", op, walletID, err)
 	}
 
 	switch operationType {
