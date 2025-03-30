@@ -29,10 +29,14 @@ type Storage struct {
 }
 
 type Redis struct {
-	Addr     string `yaml:"address" env-default:"redis"`
-	Port     string `yaml:"port" env-default:"6379"`
-	Password string `env:"REDIS_PASSWORD" env-default:""`
-	DB       int    `yaml:"db" env-default:"0"`
+	Addr             string        `yaml:"address" env-default:"redis"`
+	Port             string        `yaml:"port" env-default:"6379"`
+	Password         string        `env:"REDIS_PASSWORD" env-default:""`
+	DB               int           `yaml:"db" env-default:"0"`
+	LockExporation   time.Duration `yaml:"lock_exporation" env-default:"500ms"`
+	CacheExporation  time.Duration `yaml:"cache_exporation" env-default:"10m"`
+	MaxUnlockRetries int           `yaml:"max_unlock_retries" env-default:"3"`
+	BaseRetryDelay   time.Duration `yaml:"base_retry_delay" env-default:"50ms"`
 }
 
 type HTTPServer struct {

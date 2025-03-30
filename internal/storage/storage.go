@@ -3,15 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
-	"time"
 	"wallets/internal/herrors"
 	"wallets/internal/models"
 
 	"github.com/gofrs/uuid"
-)
-
-const (
-	DBRequestTimeout = 1 * time.Second // TODO убрать в конфиг
 )
 
 type DBRepos interface {

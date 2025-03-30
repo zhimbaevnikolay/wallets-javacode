@@ -12,17 +12,17 @@ import (
 )
 
 const (
-	pong                 = "PONG"
-	expDuration          = 500 * time.Millisecond // TODO убрать в конфиг
-	cacheExpDuration     = 10 * time.Minute       // TODO убрать в конфиг
-	lockWalletKey        = "lock:wallet"
-	walletKey            = "wallet"
-	maxLockWalletRetries = 20                    // TODO убрать в конфиг
-	lockWalletBaseDelay  = 50 * time.Millisecond // TODO убрать в конфиг
+	pong      = "PONG"
+	LOCKKEY   = "lock:wallet"
+	walletKey = "wallet"
 )
 
 type RedisClient struct {
-	client *redis.Client
+	client           *redis.Client
+	lockExporation   time.Duration
+	cacheExporation  time.Duration
+	maxUnlockRetries int
+	baseRetryDelay   time.Duration
 }
 
 func New(cfg config.Redis) (*RedisClient, error) {
@@ -42,12 +42,18 @@ func New(cfg config.Redis) (*RedisClient, error) {
 		return nil, errors.New("unexpected pong from redis")
 	}
 
-	return &RedisClient{client: client}, nil
+	return &RedisClient{
+		client:           client,
+		lockExporation:   cfg.LockExporation,
+		cacheExporation:  cfg.CacheExporation,
+		maxUnlockRetries: cfg.MaxUnlockRetries,
+		baseRetryDelay:   cfg.BaseRetryDelay,
+	}, nil
 }
 
 func (r *RedisClient) LockWallet(ctx context.Context, walletID uuid.UUID) (bool, error) {
-	key := fmt.Sprintf("%s:%s", lockWalletKey, walletID.String())
-	locked, err := r.client.SetNX(ctx, key, 1, expDuration).Result()
+	key := fmt.Sprintf("%s:%s", LOCKKEY, walletID.String())
+	locked, err := r.client.SetNX(ctx, key, 1, r.lockExporation).Result()
 	if err != nil {
 		return false, err
 	}
@@ -57,13 +63,13 @@ func (r *RedisClient) LockWallet(ctx context.Context, walletID uuid.UUID) (bool,
 }
 
 func (r *RedisClient) UnlockWallet(ctx context.Context, walletID uuid.UUID) {
-	key := fmt.Sprintf("%s:%s", lockWalletKey, walletID.String())
+	key := fmt.Sprintf("%s:%s", LOCKKEY, walletID.String())
 	r.client.Del(ctx, key)
 
 }
 
 func (r *RedisClient) TryLockWallet(ctx context.Context, walletID uuid.UUID) (bool, error) {
-	for i := 0; i < maxLockWalletRetries; i++ {
+	for i := 0; i < r.maxUnlockRetries; i++ {
 		locked, err := r.LockWallet(ctx, walletID)
 		if err != nil {
 			return false, err
@@ -73,7 +79,7 @@ func (r *RedisClient) TryLockWallet(ctx context.Context, walletID uuid.UUID) (bo
 			return true, nil
 		}
 
-		delay := lockWalletBaseDelay * time.Duration(1<<i)
+		delay := r.baseRetryDelay * time.Duration(1<<i)
 		if delay > 300*time.Millisecond {
 			delay = 300 * time.Millisecond
 		}
@@ -96,7 +102,7 @@ func (r *RedisClient) GetCachedBalance(ctx context.Context, walletID uuid.UUID) 
 
 func (r *RedisClient) SetCachedBalance(ctx context.Context, walletID uuid.UUID, balance int64) error {
 	key := fmt.Sprintf("%s:%s", walletKey, walletID)
-	return r.client.Set(ctx, key, balance, cacheExpDuration).Err()
+	return r.client.Set(ctx, key, balance, r.cacheExporation).Err()
 }
 
 func (r *RedisClient) InvalidateCache(ctx context.Context, walletID uuid.UUID) {

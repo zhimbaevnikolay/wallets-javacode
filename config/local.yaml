@@ -15,4 +15,8 @@ db:
 redis:
   address: "localhost"
   port: "6379"
-  db: 0`
+  db: 0
+  lock_exporation: 500ms
+  cache_exporation: 2m
+  max_unlock_retries: 5
+  base_retry_delay: 50ms
